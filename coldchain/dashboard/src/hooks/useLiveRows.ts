@@ -4,6 +4,10 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";
 
+// Module-level so it's unique across every useLiveRows instance on the
+// page, not just within one hook's closure.
+let channelSeq = 0;
+
 interface UseLiveRowsOptions<T> {
   /** Unique per distinct subscription (e.g. `telemetry:${deviceId}`) --
    * used to key the realtime channel name and to reset state when the
@@ -70,7 +74,13 @@ export function useLiveRows<T>({ scope, table, fetchRows, key, filter, enabled =
     let channel: RealtimeChannel;
 
     function connect() {
-      channel = supabase.channel(`${scope}:${Date.now()}`);
+      // A counter, not Date.now(): two useLiveRows instances mounting in
+      // the same tick with the same scope (e.g. DriverView's own
+      // useAlerts alongside the one inside its useFleet()) can land on
+      // the same millisecond, and supabase-js reuses a channel object
+      // for a topic it already knows -- so the second .on() call throws
+      // "cannot add postgres_changes callbacks ... after subscribe()".
+      channel = supabase.channel(`${scope}:${++channelSeq}`);
       channel
         .on(
           "postgres_changes",
