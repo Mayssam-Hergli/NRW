@@ -229,3 +229,16 @@ DUTY_CYCLE_WINDOW_MIN = 15.0
 # expected_duty_pct, in percentage points, before it counts as a
 # detectable anomaly (as opposed to ordinary hysteresis-band noise).
 DUTY_ANOMALY_MARGIN_PCT = 8.0
+
+# --------------------------------------------------------------------------
+# Light sensor
+# --------------------------------------------------------------------------
+
+# A sealed, dark compartment reads near zero; an open door floods it with
+# "tens of thousands of lux" (spec). Fusion's offload-stop suppression
+# cross-checks the reed switch (door.open) against this reading specifically
+# so a stuck or taped-over switch alone can't produce a false suppression --
+# these two values need to differ by a wide margin for that check to mean
+# anything, not by their exact size.
+DOOR_OPEN_LUX = 20000.0
+DOOR_CLOSED_LUX = 0.0

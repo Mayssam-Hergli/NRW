@@ -215,7 +215,7 @@ class Scenario:
                 cargo=_make_cargo(thermal_state),
                 ambient_c=round(air, 2),
                 door=DoorState(open=door_open, events=door_events),
-                light_lux=0.0,
+                light_lux=config.DOOR_OPEN_LUX if door_open else config.DOOR_CLOSED_LUX,
                 motion=Motion(peak_g=fault_info.get("peak_g", 0.0), shock_events=0, vib_rms=0.02),
                 power=_make_power(elec_state, thermal_state),
                 health=Health(
