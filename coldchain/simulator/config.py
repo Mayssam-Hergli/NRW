@@ -7,7 +7,7 @@ from minutes to seconds). If a curve looks wrong, tune it here.
 
 from __future__ import annotations
 
-from shared.enums import ProbePosition
+from shared.enums import MissionProfile, ProbePosition
 
 # --------------------------------------------------------------------------
 # Route
@@ -107,8 +107,41 @@ STATIONARY_SPEED_THRESHOLD_KMH = 2.0
 THERMAL_TAU_MIN = 120.0
 
 # Compressor thermostat hysteresis band around the setpoint (the profile
-# band's midpoint), in Celsius.
-THERMOSTAT_HYSTERESIS_C = 0.5
+# band's midpoint), in Celsius. Profile-dependent, not a single constant:
+# FRONT's own dynamic overshoot below setpoint each cycle (its -0.9C offset
+# plus its halved tau and doubled cooling gain -- see PROBE_OFFSET_C /
+# PROBE_TAU_MULT below -- causes it to swing well past where the reference
+# channel itself would stop) is close to a *fixed absolute* quantity,
+# essentially independent of which profile is loaded, because it's driven
+# by these same shared constants regardless of the band. A single global
+# 0.5C value was tuned against the 10C-wide profiles and leaves almost no
+# margin on a 6C band, and none at all on a 4C one -- measured empirically
+# (simulator/thermal.py, healthy cycling, no fault):
+#
+#   profile               band   front_min   margin to floor (at 0.5C)
+#   controlled_room_temp  10C    17.33 C     +2.33 C
+#   pharma_frozen         10C   -22.67 C     +2.33 C
+#   pharma_refrigerated    6C     2.33 C     +0.33 C
+#   vaccines               6C     2.33 C     +0.33 C
+#   fresh_produce          4C    -0.67 C     -0.67 C  (already past the floor)
+#
+# fresh_produce's FRONT probe crosses its own band's lower bound during
+# ordinary, fault-free cycling at the default hysteresis -- not a fault
+# scenario artifact. Narrowed per profile below to restore real margin on
+# the two 6C-band profiles and correct the outright breach on the 4C one;
+# the two 10C-band profiles already had comfortable margin and are
+# unchanged. This does not fully eliminate FRONT's undershoot (that's
+# driven mostly by its offset and response speed, not hysteresis alone --
+# narrowing hysteresis to zero on fresh_produce still bottoms out around
+# +0.5C, bounded by FRONT's own -0.9C offset), it only restores the margin
+# a 0.5C-tuned hysteresis assumed was there.
+THERMOSTAT_HYSTERESIS_C: dict[MissionProfile, float] = {
+    MissionProfile.pharma_refrigerated: 0.2,
+    MissionProfile.pharma_frozen: 0.5,
+    MissionProfile.controlled_room_temp: 0.5,
+    MissionProfile.vaccines: 0.2,
+    MissionProfile.fresh_produce: 0.1,
+}
 
 # Cooling power expressed in the same units as the ODE's other terms:
 # degrees C per minute the compressor can pull the reference channel down

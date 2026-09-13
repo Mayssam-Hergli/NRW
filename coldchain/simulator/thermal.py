@@ -50,6 +50,7 @@ class ThermalSim:
         spec = get_profile(profile)
         self.setpoint_c = (spec.min_c + spec.max_c) / 2.0
         self.tau_min = config.THERMAL_TAU_MIN
+        self.hysteresis_c = config.THERMOSTAT_HYSTERESIS_C[profile]
         self.cooling_capacity_frac = 1.0
         self.compressor_on = False
 
@@ -76,9 +77,9 @@ class ThermalSim:
         """
         dt_min = dt_s / 60.0
 
-        if self._t_ref > self.setpoint_c + config.THERMOSTAT_HYSTERESIS_C:
+        if self._t_ref > self.setpoint_c + self.hysteresis_c:
             self.compressor_on = True
-        elif self._t_ref < self.setpoint_c - config.THERMOSTAT_HYSTERESIS_C:
+        elif self._t_ref < self.setpoint_c - self.hysteresis_c:
             self.compressor_on = False
 
         cooling_active = self.compressor_on and unit_powered
