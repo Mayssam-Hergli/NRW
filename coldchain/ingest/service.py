@@ -10,10 +10,30 @@ from dataclasses import dataclass
 import paho.mqtt.client as mqtt
 
 from ingest.store import Store
+from ingest.supabase_store import SupabaseStore
 from shared.schema import ALERT_TOPIC, TELEMETRY_TOPIC, AlertRecord, TelemetryPacket, topic_for
 from shared.wire import from_wire
 
 logger = logging.getLogger("ingest.service")
+
+AnyStore = Store | SupabaseStore
+
+
+def build_store() -> AnyStore:
+    """Pick the persistence backend from STORE_BACKEND ("sqlite", the
+    default, or "supabase"). Both backends expose the same instance
+    interface, so nothing downstream of this needs to know which one it
+    got.
+    """
+    backend = os.environ.get("STORE_BACKEND", "sqlite").lower()
+    if backend == "supabase":
+        url = os.environ["SUPABASE_URL"]
+        key = os.environ["SUPABASE_SERVICE_KEY"]
+        return SupabaseStore.open(url, key)
+    if backend == "sqlite":
+        db_path = os.environ.get("DB_PATH", "coldchain.db")
+        return Store.open(db_path)
+    raise ValueError(f"unknown STORE_BACKEND: {backend!r} (expected 'sqlite' or 'supabase')")
 
 
 @dataclass
@@ -39,7 +59,7 @@ def decode_alert(payload: bytes) -> AlertRecord:
 
 
 class IngestService:
-    def __init__(self, store: Store, host: str, port: int, tenant: str) -> None:
+    def __init__(self, store: AnyStore, host: str, port: int, tenant: str) -> None:
         self.store = store
         self.host = host
         self.port = port
@@ -166,10 +186,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     host = os.environ.get("MQTT_HOST", "localhost")
     port = int(os.environ.get("MQTT_PORT", "1883"))
-    db_path = os.environ.get("DB_PATH", "coldchain.db")
     tenant = os.environ.get("TENANT", "+")
 
-    store = Store.open(db_path)
+    store = build_store()
     service = IngestService(store, host=host, port=port, tenant=tenant)
     asyncio.run(_run(service))
 

@@ -57,6 +57,79 @@ pytest
 ruff check .
 ```
 
+## Storage backend: SQLite or Supabase
+
+`ingest/store.py` (`Store`, SQLite) and `ingest/supabase_store.py`
+(`SupabaseStore`, hosted Postgres) expose the exact same instance
+interface — `insert_packet`, `insert_alert`, `update_alert`, `packets`,
+`latest`, `shipment`, `alerts`, `gaps`, `close`. `ingest/service.py` picks
+one via `build_store()`, based on `STORE_BACKEND`; nothing else in the
+ingest pipeline knows or cares which backend it's talking to.
+
+Supabase exists so the demo can put a QR code on screen: the simulator and
+models keep running locally, but the phones in the room need a hosted
+database they can subscribe to directly, and Supabase Realtime is that
+WebSocket layer, already built.
+
+### Env vars
+
+| Var | Used by | Notes |
+|---|---|---|
+| `STORE_BACKEND` | ingest | `sqlite` (default) or `supabase` |
+| `DB_PATH` | ingest, sqlite backend | path to the local `.db` file |
+| `SUPABASE_URL` | ingest, supabase backend | `https://<project-ref>.supabase.co` |
+| `SUPABASE_SERVICE_KEY` | ingest, supabase backend | service-role key — bypasses RLS entirely |
+| `SUPABASE_ANON_KEY` | the (not-yet-built) frontend | public, read-only under RLS — safe to ship in a static build |
+
+**`SUPABASE_SERVICE_KEY` never enters the repo or the static frontend
+build.** It is the one credential that bypasses row-level security
+outright, held only by the local ingest process, passed in as an
+environment variable at runtime. `SUPABASE_ANON_KEY` is the only Supabase
+key a browser should ever see — it's designed to ship inside a public
+static site, and `infra/rls.sql` is what makes that safe.
+
+### One-time project setup
+
+1. Create a Supabase project.
+2. In the SQL Editor (or via the CLI), run `infra/schema.sql`, then
+   `infra/rls.sql`, in that order — the tables have to exist before the
+   policies referencing them can be created.
+3. Enable email/password sign-in under Authentication if you want to
+   exercise the `authenticated`-role tests or flows (no accounts or
+   passwords live in this repo; `profiles.role`/`profiles.locale` just
+   drive what a signed-in user's dashboard shows).
+4. Copy the project URL, the `service_role` key, and the `anon` key into
+   your environment (never into a committed file):
+
+   ```
+   export STORE_BACKEND=supabase
+   export SUPABASE_URL=https://<project-ref>.supabase.co
+   export SUPABASE_SERVICE_KEY=<service-role key>
+   export SUPABASE_ANON_KEY=<anon key>
+   ```
+
+5. Run ingest against it exactly as with SQLite:
+
+   ```
+   python -m ingest.service
+   ```
+
+### Running the Supabase tests
+
+`tests/test_supabase_store.py` has ten tests. Two (interface parity,
+backend switching) run with no configuration at all. The other eight
+need a real project with the schema and RLS already applied — they're
+marked `supabase_live` and self-skip when the env vars above aren't set:
+
+```
+pytest tests/test_supabase_store.py            # skips the live ones cleanly
+pytest tests/test_supabase_store.py -m supabase_live   # only the live ones
+```
+
+The live tests create and delete their own throwaway rows/users
+(prefixed with a random suffix) against whatever project the env vars
+point at — don't point them at a project with data you care about.
+
 ## Directory map
 
 ```

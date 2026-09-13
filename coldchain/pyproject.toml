@@ -7,6 +7,7 @@ dependencies = [
     "pydantic>=2.0",
     "cbor2>=5.5",
     "paho-mqtt>=2.0",
+    "supabase>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -17,6 +18,9 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = [
+    "supabase_live: requires a real Supabase project (SUPABASE_URL etc.); skipped when absent",
+]
 
 [tool.ruff]
 line-length = 100
