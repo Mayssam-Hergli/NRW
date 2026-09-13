@@ -15,6 +15,7 @@ from shared.enums import ProbePosition
 from shared.profiles import MissionProfile, get_profile
 from simulator import config
 from simulator.ambient import ambient_c, effective_ambient_c
+from simulator.electrical import ElectricalSim
 from simulator.route import Route
 from simulator.thermal import ThermalSim, stationary_capacity_frac
 
@@ -34,6 +35,7 @@ DOOR_OPEN_DURING_STOP_MIN = (5.0, 12.0)  # minutes into the stop
 def run(inject_door_event: bool = True) -> dict:
     route = Route()
     sim = ThermalSim(MISSION_PROFILE)
+    elec = ElectricalSim(MISSION_PROFILE)
     spec = get_profile(MISSION_PROFILE)
 
     rows = []
@@ -62,6 +64,8 @@ def run(inject_door_event: bool = True) -> dict:
 
         sim.cooling_capacity_frac = stationary_capacity_frac(point.speed_kmh, air)
         state = sim.step(STEP_S, eff, door_open=door_open)
+        e_state = elec.step(STEP_S, eff, compressor_on=state.compressor_on)
+        expected_duty = elec.expected_duty_pct(eff, point.speed_kmh)
 
         rows.append(
             {
@@ -75,6 +79,13 @@ def run(inject_door_event: bool = True) -> dict:
                 "t_rear_door": round(state.t_by_probe[ProbePosition.rear_door], 3),
                 "compressor_on": state.compressor_on,
                 "door_open": state.door_open,
+                "i_compressor": round(e_state.i_compressor, 3),
+                "i_cond_fan": round(e_state.i_cond_fan, 3),
+                "i_evap_fan": round(e_state.i_evap_fan, 3),
+                "inrush_peak": round(e_state.inrush_peak, 3),
+                "v_bus": round(e_state.v_bus, 3),
+                "duty_pct": round(e_state.duty_pct, 2),
+                "expected_duty_pct": round(expected_duty, 2),
             }
         )
         t += dt_min
@@ -98,6 +109,18 @@ def run(inject_door_event: bool = True) -> dict:
         if (not prev["compressor_on"]) and cur["compressor_on"]
     )
 
+    compressor_currents = [r["i_compressor"] for r in rows]
+    mean_compressor_current = sum(compressor_currents) / len(compressor_currents)
+    max_compressor_current = max(compressor_currents)
+    inrush_events = sum(
+        1
+        for prev, cur in zip(rows, rows[1:], strict=False)
+        if (not prev["compressor_on"]) and cur["compressor_on"]
+    )
+    min_bus_voltage = min(r["v_bus"] for r in rows)
+    mean_duty_pct = sum(r["duty_pct"] for r in rows) / len(rows)
+    mean_duty_deviation = sum(r["duty_pct"] - r["expected_duty_pct"] for r in rows) / len(rows)
+
     ambient_peak_row = max(rows, key=lambda r: r["ambient_c"])
     cargo_peak_row = max(rows, key=lambda r: r["t_rear_door"])
 
@@ -118,6 +141,12 @@ def run(inject_door_event: bool = True) -> dict:
         "ambient_peak_t_min": ambient_peak_row["t_min"],
         "cargo_peak_t_min": cargo_peak_row["t_min"],
         "ambient_turned_over": ambient_turned_over,
+        "mean_compressor_current": mean_compressor_current,
+        "max_compressor_current": max_compressor_current,
+        "inrush_events": inrush_events,
+        "min_bus_voltage": min_bus_voltage,
+        "mean_duty_pct": mean_duty_pct,
+        "mean_duty_deviation": mean_duty_deviation,
     }
     return summary
 
@@ -144,6 +173,13 @@ def main() -> None:
     print(f"cargo temp range:      {summary['min_cargo_c']:.2f} .. {summary['max_cargo_c']:.2f} C")
     print(f"minutes outside band:  {summary['minutes_outside_band']:.0f}")
     print(f"compressor cycles:     {summary['compressor_cycles']}")
+
+    print(f"mean compressor current: {summary['mean_compressor_current']:.2f} A")
+    print(f"max compressor current:  {summary['max_compressor_current']:.2f} A")
+    print(f"inrush events:           {summary['inrush_events']}")
+    print(f"min bus voltage:         {summary['min_bus_voltage']:.2f} V")
+    print(f"mean duty cycle:         {summary['mean_duty_pct']:.1f} %")
+    print(f"mean duty deviation:     {summary['mean_duty_deviation']:+.2f} pp (actual - expected)")
 
     ambient_peak_hm = _format_hm(summary["ambient_peak_t_min"])
     cargo_peak_hm = _format_hm(summary["cargo_peak_t_min"])

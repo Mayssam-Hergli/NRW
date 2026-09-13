@@ -155,3 +155,44 @@ CAPACITY_DEGRADE_PER_C = 0.02
 # condenser, so capacity never degrades below this floor from this effect
 # alone.
 MIN_STATIONARY_CAPACITY_FRAC = 0.5
+
+# --------------------------------------------------------------------------
+# Electrical
+# --------------------------------------------------------------------------
+
+# Compressor RMS current model: a base draw plus a term proportional to how
+# hard it's working, i.e. how far effective ambient sits above setpoint.
+COMPRESSOR_BASE_CURRENT_A = 3.0
+COMPRESSOR_CURRENT_PER_DELTA_C = 0.055
+
+# Inrush peak at turn-on, as a multiple of that moment's steady current, at
+# a healthy (1.0) bearing_wear_factor. "Several times" per spec; consistent
+# with real single-phase compressor locked-rotor current.
+INRUSH_MULTIPLIER = 5.0
+# How fast the inrush spike decays back to steady current once running.
+INRUSH_DECAY_TAU_S = 1.0
+# The spike is treated as fully settled after this many seconds -- about
+# 5 tau, ~99% decayed.
+INRUSH_STARTUP_WINDOW_S = 5.0
+
+# Condenser fan runs only while the compressor is actively running (it
+# exists to reject heat at the condenser coil). Evaporator fan runs
+# continuously whenever the unit has power, circulating box air even
+# between compressor cycles.
+COND_FAN_CURRENT_A = 0.9
+EVAP_FAN_CURRENT_A = 0.7
+
+# Bus voltage sags under load, proportional to total instantaneous current;
+# alternator_health divides into the sag term, so a worse alternator
+# produces a deeper sag for the same current draw.
+NOMINAL_BUS_VOLTAGE_V = 24.0
+BUS_SAG_V_PER_AMP = 0.15
+
+# Rolling window over which duty cycle (fraction of time compressor_on) is
+# computed. This is the feature refrigerant loss shows up in first.
+DUTY_CYCLE_WINDOW_MIN = 15.0
+
+# For the lead-time acceptance check: how far actual duty must exceed
+# expected_duty_pct, in percentage points, before it counts as a
+# detectable anomaly (as opposed to ordinary hysteresis-band noise).
+DUTY_ANOMALY_MARGIN_PCT = 8.0
