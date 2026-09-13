@@ -8,12 +8,14 @@ dependencies = [
     "cbor2>=5.5",
     "paho-mqtt>=2.0",
     "supabase>=2.0",
+    "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
+    "pypdf>=5.0",
 ]
 
 [tool.pytest.ini_options]

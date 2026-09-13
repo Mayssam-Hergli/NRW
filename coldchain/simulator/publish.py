@@ -3,7 +3,14 @@ CBOR over shared.wire.to_wire (never JSON -- that's the production path),
 at a configurable speed-up over the simulated clock.
 
     python -m simulator.publish --scenario door_open --speed 60x \\
-        --device TN-1234-GW --tenant nrw8-xxxx --broker $MQTT_HOST
+        --tenant nrw8-xxxx --broker $MQTT_HOST
+
+`--device` defaults to TN-{scenario}-GW when omitted, so each scenario
+gets its own device id. Every scenario's packets start at seq 0; publishing
+two scenarios under the same device id would make the second one's packets
+collide with the first's on the store's (device_id, seq) constraint and get
+silently deduped away. Pass --device explicitly only if you actually want
+to override this (e.g. simulating two vehicles running the same scenario).
 
 For dead_zone, packets the scenario has already marked buffered=True (the
 outage window) are held back instead of published in real time, then sent
@@ -31,7 +38,10 @@ MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 # be published to, so this defaults to a concrete tenant instead, matching
 # ingest/publish_test.py's precedent.
 TENANT = os.environ.get("TENANT", "demo")
-DEFAULT_DEVICE_ID = "TN-1234-GW"
+
+
+def default_device_id(scenario_name: str) -> str:
+    return f"TN-{scenario_name}-GW"
 
 
 def _parse_speed(text: str) -> float:
@@ -135,7 +145,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", required=True, choices=sorted(SCENARIOS))
     parser.add_argument("--speed", default="1x", help='Time compression, e.g. "60x".')
-    parser.add_argument("--device", dest="device_id", default=DEFAULT_DEVICE_ID)
+    parser.add_argument(
+        "--device",
+        dest="device_id",
+        default=None,
+        help="Defaults to TN-{scenario}-GW so each scenario gets its own device id.",
+    )
     parser.add_argument("--tenant", default=TENANT)
     parser.add_argument("--broker", dest="host", default=MQTT_HOST)
     parser.add_argument("--port", type=int, default=MQTT_PORT)
@@ -143,11 +158,13 @@ def main() -> None:
     parser.add_argument("--dt-s", type=float, default=60.0)
     args = parser.parse_args()
 
+    device_id = args.device_id or default_device_id(args.scenario)
+
     try:
         run_publisher(
             args.scenario,
             speed=_parse_speed(args.speed),
-            device_id=args.device_id,
+            device_id=device_id,
             tenant=args.tenant,
             host=args.host,
             port=args.port,

@@ -10,14 +10,13 @@ from __future__ import annotations
 
 from collections import Counter, deque
 
-from shared.enums import AlertState
-from simulator.electrical import ElectricalSim
-from simulator.scenarios import SCENARIOS
-
 from models.alert_engine import AlertEngine
 from models.electrical_health import ElectricalHealthMonitor
 from models.fusion import fuse
 from models.m1_thermal import M1ThermalForecast
+from shared.enums import AlertState
+from simulator.electrical import ElectricalSim
+from simulator.scenarios import SCENARIOS
 
 HISTORY_LIMIT = 30
 _LONG_DURATION: dict[str, float] = {
