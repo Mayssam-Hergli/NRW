@@ -1,0 +1,52 @@
+{
+  "controlled_room_temp": {
+    "cumulativeExcursionLimitMin": 120,
+    "doorDwellLimitMin": 20,
+    "freezeAlarm": false,
+    "label": "Controlled Room Temperature",
+    "maxC": 25.0,
+    "maxLuxHours": null,
+    "maxShockG": 8.0,
+    "minC": 15.0
+  },
+  "fresh_produce": {
+    "cumulativeExcursionLimitMin": 60,
+    "doorDwellLimitMin": 15,
+    "freezeAlarm": true,
+    "label": "Fresh Produce",
+    "maxC": 4.0,
+    "maxLuxHours": null,
+    "maxShockG": 10.0,
+    "minC": 0.0
+  },
+  "pharma_frozen": {
+    "cumulativeExcursionLimitMin": 10,
+    "doorDwellLimitMin": 5,
+    "freezeAlarm": false,
+    "label": "Pharma Frozen",
+    "maxC": -15.0,
+    "maxLuxHours": null,
+    "maxShockG": 6.0,
+    "minC": -25.0
+  },
+  "pharma_refrigerated": {
+    "cumulativeExcursionLimitMin": 30,
+    "doorDwellLimitMin": 10,
+    "freezeAlarm": false,
+    "label": "Pharma Refrigerated",
+    "maxC": 8.0,
+    "maxLuxHours": null,
+    "maxShockG": 6.0,
+    "minC": 2.0
+  },
+  "vaccines": {
+    "cumulativeExcursionLimitMin": 15,
+    "doorDwellLimitMin": 8,
+    "freezeAlarm": true,
+    "label": "Vaccines",
+    "maxC": 8.0,
+    "maxLuxHours": 250.0,
+    "maxShockG": 4.0,
+    "minC": 2.0
+  }
+}

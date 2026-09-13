@@ -1,0 +1,136 @@
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* Logical properties only, everywhere in this file -- physical inline-axis
+   ones (start/end direction, spelled the old physical way) must never
+   appear, or the RTL locale (ar) silently mirrors incorrectly. Enforced by
+   src/rtl-lint.test.ts. */
+
+.app-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 0.75rem;
+  padding-block: 0.75rem;
+  padding-inline: 1rem;
+  background: var(--primary);
+  color: var(--panel);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--rule);
+}
+
+input,
+select {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+  padding-block: 0.6rem;
+  padding-inline: 0.75rem;
+  width: 100%;
+}
+
+label {
+  display: block;
+  margin-block-end: 0.35rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.field {
+  margin-block-end: 1rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.page {
+  max-width: 480px;
+  margin-inline: auto;
+  padding: 1rem;
+  padding-block-end: 4rem;
+  width: 100%;
+}
+
+/* Dispatcher/quality read better wider once there's room. */
+.page.wide {
+  max-width: 900px;
+}
+
+.error-text {
+  color: var(--signal-text);
+  font-size: 0.875rem;
+  margin-block-start: 0.35rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.row.space-between {
+  justify-content: space-between;
+}

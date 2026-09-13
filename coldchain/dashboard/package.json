@@ -1,0 +1,38 @@
+{
+  "name": "coldchain-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "gen:messages": "python scripts/export_messages.py",
+    "gen:profiles": "python scripts/export_profiles.py",
+    "gen:data": "npm run gen:messages && npm run gen:profiles",
+    "prebuild": "npm run gen:data && npm run check:data-sync",
+    "build": "tsc -b && vite build",
+    "postbuild": "node scripts/check-no-service-key.mjs",
+    "check:data-sync": "node scripts/check-data-sync.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@types/node": "^22.20.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^25.0.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5"
+  }
+}
