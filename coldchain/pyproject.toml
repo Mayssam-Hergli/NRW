@@ -18,6 +18,15 @@ dev = [
     "pypdf>=5.0",
 ]
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ingest*", "models*", "reports*", "shared*", "simulator*"]
+exclude = ["dashboard*", "firmware*", "infra*", "tests*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 markers = [

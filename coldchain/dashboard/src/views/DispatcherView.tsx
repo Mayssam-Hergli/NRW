@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { AppHeader } from "../components/AppHeader";
+import { FleetInsights } from "../components/FleetInsights";
 import { useAlerts } from "../hooks/useAlerts";
 import { useFleet } from "../hooks/useFleet";
 import { useTelemetryHistory } from "../hooks/useTelemetryHistory";
@@ -53,6 +54,7 @@ function timeLabel(ts: string): string {
 export function DispatcherView({ locale }: { locale: Locale }) {
   const { entries, connection } = useFleet();
   const [selected, setSelected] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const deviceId = selected ?? entries[0]?.deviceId ?? null;
 
   const { packets } = useTelemetryHistory(deviceId);
@@ -78,10 +80,12 @@ export function DispatcherView({ locale }: { locale: Locale }) {
     <div>
       <AppHeader connection={connection} locale={locale} />
       <div className="page wide stack">
+        <FleetInsights entries={entries} locale={locale} />
         <div className="panel">
           <div style={{ fontWeight: 700, marginBlockEnd: "0.5rem" }}>{UI_TEXT.fleet[locale]}</div>
-          <div className="stack">
-            {entries.map((entry) => {
+          <input type="search" aria-label={UI_TEXT.fleet[locale]} placeholder={locale === "fr" ? "Rechercher un véhicule…" : locale === "ar" ? "البحث عن مركبة…" : "Search vehicles…"} value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="fleet-grid">
+            {entries.filter(e => e.deviceId.toLowerCase().includes(search.toLowerCase())).map((entry) => {
               const worst = entry.activeAlerts.reduce<string | null>((acc, a) => {
                 if (a.severity === "critical") return "critical";
                 if (a.severity === "warning" && acc !== "critical") return "warning";
@@ -91,7 +95,8 @@ export function DispatcherView({ locale }: { locale: Locale }) {
               return (
                 <button
                   key={entry.deviceId}
-                  className={entry.deviceId === deviceId ? "" : "secondary"}
+                  className="vehicle-card secondary"
+                  aria-pressed={entry.deviceId === deviceId}
                   onClick={() => setSelected(entry.deviceId)}
                   style={{ textAlign: "start" }}
                 >
@@ -104,10 +109,12 @@ export function DispatcherView({ locale }: { locale: Locale }) {
                       </span>
                     )}
                   </span>
+                  <span className="vehicle-meta">{entry.latest.shipment_id ?? "—"} · {new Date(entry.latest.ts).toLocaleString(locale)}</span>
                 </button>
               );
             })}
           </div>
+          {entries.length === 0 && <p className="insight-note">{locale === "fr" ? "En attente des premières mesures de la flotte." : locale === "ar" ? "بانتظار أول قراءات الأسطول." : "Waiting for the fleet’s first readings."}</p>}
         </div>
 
         {!deviceId ? (
@@ -170,6 +177,7 @@ export function DispatcherView({ locale }: { locale: Locale }) {
             <div className="panel">
               <div style={{ fontWeight: 700, marginBlockEnd: "0.5rem" }}>{UI_TEXT.alerts[locale]}</div>
               <div className="stack">
+                {alerts.length === 0 && <p className="insight-note">{locale === "fr" ? "Aucune alerte reçue pour ce véhicule." : locale === "ar" ? "لم يتم استلام تنبيهات لهذه المركبة." : "No alerts received for this vehicle."}</p>}
                 {alerts.map((a) => (
                   <div key={a.alert_id} className="row space-between" style={{ fontSize: "0.9rem" }}>
                     <span style={{ color: SEVERITY_COLOR[a.severity] ?? "inherit" }}>

@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { Logo } from "../components/Logo";
 import type { Locale } from "../lib/types";
 
@@ -78,23 +77,27 @@ const TEXT = {
     en: "Vallum -- cold chain integrity monitoring for pharmaceutical transport.",
     ar: "Vallum -- مراقبة سلامة سلسلة التبريد لنقل المستحضرات الصيدلانية.",
   },
+  eyebrow: { fr: "Chaîne du froid pharmaceutique", en: "Pharmaceutical cold chain", ar: "سلسلة التبريد الدوائية" },
+  live: { fr: "SURVEILLANCE EN DIRECT", en: "LIVE MONITORING", ar: "مراقبة مباشرة" },
+  shipmentSafe: { fr: "Expédition protégée", en: "Shipment protected", ar: "الشحنة محمية" },
+  route: { fr: "Tunis → Sfax", en: "Tunis → Sfax", ar: "تونس ← صفاقس" },
+  cargo: { fr: "Température cargaison", en: "Cargo temperature", ar: "درجة حرارة الشحنة" },
+  unit: { fr: "Groupe froid", en: "Refrigeration unit", ar: "وحدة التبريد" },
+  unitHealthy: { fr: "Fonctionnement nominal", en: "Operating normally", ar: "تعمل بشكل طبيعي" },
+  prediction: { fr: "Marge avant excursion", en: "Margin before excursion", ar: "الهامش قبل الانحراف" },
+  predictionValue: { fr: "> 4 heures", en: "> 4 hours", ar: "> 4 ساعات" },
+  trust1: { fr: "Alerte hors réseau", en: "Offline alerting", ar: "تنبيه دون اتصال" },
+  trust2: { fr: "Données signées", en: "Signed telemetry", ar: "بيانات موقّعة" },
+  trust3: { fr: "Conformité vérifiable", en: "Verifiable compliance", ar: "امتثال قابل للتحقق" },
 } satisfies Record<string, Record<Locale, string>>;
 
-const CARD_STYLE: CSSProperties = {
-  background: "var(--panel)",
-  border: "1px solid var(--rule)",
-  borderRadius: "1rem",
-  padding: "1.25rem",
-};
-
-function FeatureCard({ title, body }: { title: string; body: string }) {
+function FeatureCard({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div style={CARD_STYLE}>
-      <div style={{ fontWeight: 700, marginBlockEnd: "0.4rem" }}>{title}</div>
-      <div className="muted" style={{ fontSize: "0.9rem", lineHeight: 1.5 }}>
-        {body}
-      </div>
-    </div>
+    <article className="landing-feature-card">
+      <span className="landing-feature-icon" aria-hidden="true">{icon}</span>
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </article>
   );
 }
 
@@ -110,19 +113,11 @@ export function LandingPage({
   const t = TEXT;
 
   return (
-    <div>
-      <header
-        style={{
-          position: "sticky",
-          insetBlockStart: 0,
-          zIndex: 10,
-          background: "var(--panel)",
-          borderBlockEnd: "1px solid var(--rule)",
-        }}
-      >
-        <div className="page wide row space-between" style={{ paddingBlock: "0.75rem" }}>
+    <div className="landing">
+      <header className="landing-header">
+        <div className="landing-nav">
           <Logo height={30} />
-          <div className="row">
+          <div className="landing-nav-actions">
             <button className="secondary" onClick={onSignIn}>
               {t.signIn[locale]}
             </button>
@@ -131,56 +126,77 @@ export function LandingPage({
         </div>
       </header>
 
-      <section className="page wide stack" style={{ paddingBlockStart: "3rem", paddingBlockEnd: "3rem", textAlign: "center" }}>
-        <h1 style={{ fontSize: "2rem", lineHeight: 1.25, margin: 0 }}>{t.slogan[locale]}</h1>
-        <p className="muted" style={{ fontSize: "1.05rem", maxWidth: "560px", marginInline: "auto" }}>
-          {t.subhead[locale]}
-        </p>
-        <div className="row" style={{ justifyContent: "center", marginBlockStart: "0.5rem" }}>
-          <button onClick={onSignUp} style={{ fontSize: "1rem", padding: "0.85rem 1.5rem" }}>
-            {t.ctaPrimary[locale]}
-          </button>
-          <button className="secondary" onClick={onSignIn} style={{ fontSize: "1rem", padding: "0.85rem 1.5rem" }}>
-            {t.ctaSecondary[locale]}
-          </button>
-        </div>
-      </section>
+      <main>
+        <section className="landing-hero">
+          <div className="landing-hero-copy">
+            <div className="landing-eyebrow"><span />{t.eyebrow[locale]}</div>
+            <h1>{t.slogan[locale]}</h1>
+            <p>{t.subhead[locale]}</p>
+            <div className="landing-hero-actions">
+              <button onClick={onSignUp}>{t.ctaPrimary[locale]} <span aria-hidden="true">→</span></button>
+              <button className="secondary" onClick={onSignIn}>{t.ctaSecondary[locale]}</button>
+            </div>
+            <div className="landing-trust-row">
+              {[t.trust1[locale], t.trust2[locale], t.trust3[locale]].map((item) => (
+                <span key={item}><b aria-hidden="true">✓</b>{item}</span>
+              ))}
+            </div>
+          </div>
 
-      <section className="page wide stack" style={{ paddingBlockEnd: "3rem" }}>
-        <h2 style={{ textAlign: "center", fontSize: "1.4rem" }}>{t.howItWorksTitle[locale]}</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          <FeatureCard title={`1. ${t.step1Title[locale]}`} body={t.step1Body[locale]} />
-          <FeatureCard title={`2. ${t.step2Title[locale]}`} body={t.step2Body[locale]} />
-          <FeatureCard title={`3. ${t.step3Title[locale]}`} body={t.step3Body[locale]} />
-        </div>
-      </section>
+          <div className="landing-monitor" aria-label={t.live[locale]}>
+            <p className="insight-note" style={{ paddingInline: "1.35rem" }}>{locale === "fr" ? "Aperçu illustratif · données simulées" : locale === "ar" ? "معاينة توضيحية · بيانات محاكاة" : "Illustrative preview · simulated data"}</p>
+            <div className="landing-monitor-top">
+              <span><i />{t.live[locale]}</span>
+              <span className="numeric">ESP32-TN-0042</span>
+            </div>
+            <div className="landing-monitor-title">
+              <div><strong>{t.shipmentSafe[locale]}</strong><span>{t.route[locale]}</span></div>
+              <span className="landing-shield" aria-hidden="true">✓</span>
+            </div>
+            <div className="landing-temp-block">
+              <span>{t.cargo[locale]}</span>
+              <strong className="numeric">4.6<small>°C</small></strong>
+              <div className="landing-band"><i /></div>
+              <div className="landing-band-labels numeric"><span>2°C</span><b>2–8°C</b><span>8°C</span></div>
+            </div>
+            <div className="landing-monitor-grid">
+              <div><span>{t.unit[locale]}</span><strong><i />{t.unitHealthy[locale]}</strong></div>
+              <div><span>{t.prediction[locale]}</span><strong>{t.predictionValue[locale]}</strong></div>
+            </div>
+          </div>
+        </section>
 
-      <section className="page wide stack" style={{ paddingBlockEnd: "3rem" }}>
-        <h2 style={{ textAlign: "center", fontSize: "1.4rem" }}>{t.featuresTitle[locale]}</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          <FeatureCard title={t.featureAlerts[locale]} body={t.featureAlertsBody[locale]} />
-          <FeatureCard title={t.featureFleet[locale]} body={t.featureFleetBody[locale]} />
-          <FeatureCard title={t.featureDriver[locale]} body={t.featureDriverBody[locale]} />
-          <FeatureCard title={t.featureCompliance[locale]} body={t.featureComplianceBody[locale]} />
-          <FeatureCard title={t.featureLocale[locale]} body={t.featureLocaleBody[locale]} />
-          <FeatureCard title={t.featureResilience[locale]} body={t.featureResilienceBody[locale]} />
-        </div>
-      </section>
+        <section className="landing-process">
+          <div className="landing-section-heading">
+            <span>01 — 03</span>
+            <h2>{t.howItWorksTitle[locale]}</h2>
+          </div>
+          <div className="landing-process-grid">
+            <FeatureCard icon="01" title={t.step1Title[locale]} body={t.step1Body[locale]} />
+            <FeatureCard icon="02" title={t.step2Title[locale]} body={t.step2Body[locale]} />
+            <FeatureCard icon="03" title={t.step3Title[locale]} body={t.step3Body[locale]} />
+          </div>
+        </section>
 
-      <footer className="page wide muted" style={{ textAlign: "center", fontSize: "0.8rem", paddingBlockEnd: "2rem" }}>
-        {t.footer[locale]}
+        <section className="landing-features">
+          <div className="landing-section-heading">
+            <span>VALLUM</span>
+            <h2>{t.featuresTitle[locale]}</h2>
+          </div>
+          <div className="landing-feature-grid">
+            <FeatureCard icon="⚡" title={t.featureAlerts[locale]} body={t.featureAlertsBody[locale]} />
+            <FeatureCard icon="⌁" title={t.featureFleet[locale]} body={t.featureFleetBody[locale]} />
+            <FeatureCard icon="↗" title={t.featureDriver[locale]} body={t.featureDriverBody[locale]} />
+            <FeatureCard icon="✓" title={t.featureCompliance[locale]} body={t.featureComplianceBody[locale]} />
+            <FeatureCard icon="文" title={t.featureLocale[locale]} body={t.featureLocaleBody[locale]} />
+            <FeatureCard icon="↻" title={t.featureResilience[locale]} body={t.featureResilienceBody[locale]} />
+          </div>
+        </section>
+      </main>
+
+      <footer className="landing-footer">
+        <Logo height={24} />
+        <span>{t.footer[locale]}</span>
       </footer>
     </div>
   );

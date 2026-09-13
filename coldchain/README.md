@@ -79,7 +79,7 @@ WebSocket layer, already built.
 | `DB_PATH` | ingest, sqlite backend | path to the local `.db` file |
 | `SUPABASE_URL` | ingest, supabase backend | `https://<project-ref>.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | ingest, supabase backend | service-role key — bypasses RLS entirely |
-| `SUPABASE_ANON_KEY` | the (not-yet-built) frontend | public, read-only under RLS — safe to ship in a static build |
+| `SUPABASE_ANON_KEY` | dashboard | public, read-only under RLS — safe to ship in a static build |
 
 **`SUPABASE_SERVICE_KEY` never enters the repo or the static frontend
 build.** It is the one credential that bypasses row-level security
@@ -134,16 +134,16 @@ point at — don't point them at a project with data you care about.
 
 ```
 shared/       Frozen data contract: enums, mission profiles, schema, wire codec.
-simulator/    Synthetic fleet + fault scenario generator. (not yet implemented)
-ingest/       MQTT/TLS broker-facing ingest service. (not yet implemented)
-models/       Thermal, electrical, and fusion diagnostic models. (not yet implemented)
-api/          Cloud API serving diagnoses, alerts, certificates. (not yet implemented)
-reports/      Compliance certificate generation. (not yet implemented)
-dashboard/    Driver/dispatcher-facing UI. (not yet implemented)
-firmware/     ESP32-S3 gateway firmware. (not yet implemented)
-docs/         Design notes.
-infra/        Local dev infrastructure (Mosquitto broker config).
-tests/        Tests for shared/.
+simulator/    Synthetic fleet, fault scenarios, MQTT publisher, and database seeder.
+ingest/       MQTT ingest service with interchangeable SQLite and Supabase stores.
+models/       Thermal, electrical, MKT/stability, fusion, and alert lifecycle models.
+api/          Reserved for a cloud HTTP API; currently empty.
+reports/      Multilingual PDF compliance-certificate generation.
+dashboard/    React driver, dispatcher, and quality UI using Supabase Auth + Realtime.
+firmware/     Reserved for the ESP32-S3 gateway firmware; currently empty.
+docs/         Reserved for design notes; currently empty.
+infra/        Mosquitto configuration plus Supabase schema and RLS policies.
+tests/        Python tests spanning contracts, simulation, ingest, models, and reports.
 ```
 
 ## shared/ is frozen

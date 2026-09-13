@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AlertRow, TelemetryPacket, UserProfile } from "../lib/types";
 import { DriverView } from "./DriverView";
 
@@ -17,11 +17,11 @@ function makePacket(speedKmh: number): TelemetryPacket {
     shipment_id: "SHIP-1",
     mission_profile: "pharma_refrigerated",
     band: { min_c: 2.0, max_c: 8.0 },
-    ts: new Date().toISOString(),
+    ts: new Date(Date.now() - mockAge).toISOString(),
     seq: 1,
     buffered: false,
     gnss: { lat: 36.8, lon: 10.18, speed_kmh: speedKmh, fix: "3D" },
-    cargo: [{ tag: "P1", pos: "front", t_c: 5.0, rh: null }],
+    cargo: [{ tag: "P1", pos: "front", t_c: mockTemp, rh: null }],
     ambient_c: 30.0,
     door: { open: false, events: 0 },
     light_lux: 0,
@@ -77,9 +77,14 @@ function makeAlert(): AlertRow {
 }
 
 let mockSpeed = 0;
+let mockAge = 0;
+let mockTemp = 5;
+let mockHasAlert = true;
+const mockSignOut = vi.fn().mockResolvedValue(undefined);
+beforeEach(() => { mockSpeed = 0; mockAge = 0; mockTemp = 5; mockHasAlert = true; });
 
 vi.mock("../lib/auth", () => ({
-  useAuth: () => ({ profile: baseProfile, activeView: "driver", setActiveView: vi.fn() }),
+  useAuth: () => ({ profile: baseProfile, activeView: "driver", setActiveView: vi.fn(), signOut: mockSignOut }),
 }));
 
 vi.mock("../hooks/useFleet", () => ({
@@ -94,10 +99,27 @@ vi.mock("../hooks/useTelemetryHistory", () => ({
 }));
 
 vi.mock("../hooks/useAlerts", () => ({
-  useAlerts: () => ({ alerts: [makeAlert()], acknowledge: vi.fn(), writeError: null }),
+  useAlerts: () => ({ alerts: mockHasAlert ? [makeAlert()] : [], acknowledge: vi.fn(), writeError: null }),
 }));
 
 describe("DriverView speed gating", () => {
+  it("allows logout while the driving layout is active", async () => {
+    mockSpeed = 80;
+    render(<DriverView locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+  });
+  it("does not reassure a moving driver when telemetry is stale", () => {
+    mockSpeed = 80; mockAge = 600000; mockHasAlert = false;
+    render(<DriverView locale="en" />);
+    expect(screen.getAllByText(/Readings are stale/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Everything's fine.")).not.toBeInTheDocument();
+  });
+  it("shows a low temperature excursion without requiring an alert", () => {
+    mockTemp = 1; mockSpeed = 80; mockHasAlert = false;
+    render(<DriverView locale="en" />);
+    expect(screen.getByText("Temperature outside band")).toBeInTheDocument();
+  });
   it("renders the same alert differently at 0 km/h vs 80 km/h", () => {
     mockSpeed = 0;
     const { container: stationary, unmount } = render(<DriverView locale="fr" />);

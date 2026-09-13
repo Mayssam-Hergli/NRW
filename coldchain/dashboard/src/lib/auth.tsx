@@ -1,4 +1,4 @@
-import type { Session } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { supabase } from "./supabase";
@@ -36,17 +36,22 @@ export class NeedsEmailConfirmationError extends Error {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function fetchProfile(userId: string): Promise<UserProfile | null> {
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-  if (error) {
-    // PGRST116 = no row found -- expected right after sign-up before the
-    // profile insert has landed, not a real error.
-    if (error.code !== "PGRST116") {
-      console.error("fetchProfile failed", error);
-    }
-    return null;
-  }
-  return data as UserProfile;
+async function fetchProfile(user: User): Promise<UserProfile> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  if (error) throw error;
+  if (data) return data as UserProfile;
+  const metadata = user.user_metadata ?? {};
+  const row = {
+    id: user.id,
+    role: ["driver", "dispatcher", "quality"].includes(metadata.role) ? metadata.role : "driver",
+    locale: ["fr", "en", "ar"].includes(metadata.locale) ? metadata.locale : "fr",
+    display_name: metadata.display_name || user.email?.split("@")[0] || "Utilisateur",
+  };
+  const { error: insertError } = await supabase.from("profiles").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (insertError) throw insertError;
+  const result = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  if (result.error) throw result.error;
+  return result.data as UserProfile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -54,33 +59,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveViewState] = useState<Role | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      setSession(data.session);
-      if (data.session) {
-        const p = await fetchProfile(data.session.user.id);
-        if (!cancelled) {
+    let revision = 0;
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      const current = ++revision;
+      // Run outside the auth callback: database requests also acquire the auth lock.
+      setTimeout(async () => {
+        if (cancelled || current !== revision) return;
+        setSession(newSession);
+        setAuthError(null);
+        try {
+          const p = newSession ? await fetchProfile(newSession.user) : null;
+          if (cancelled || current !== revision) return;
           setProfile(p);
           setActiveViewState(p?.role ?? null);
+        } catch (err) {
+          if (!cancelled && current === revision) {
+            setProfile(null);
+            setAuthError(err instanceof Error ? err.message : String((err as { message?: string }).message ?? err));
+          }
+        } finally {
+          if (!cancelled && current === revision) setLoading(false);
         }
-      }
-      setLoading(false);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession) {
-        const p = await fetchProfile(newSession.user.id);
-        setProfile(p);
-        setActiveViewState((current) => current ?? p?.role ?? null);
-      } else {
-        setProfile(null);
-        setActiveViewState(null);
-      }
+      }, 0);
     });
 
     return () => {
@@ -91,7 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback<AuthContextValue["signUp"]>(
     async ({ email, password, role, locale, displayName }) => {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password,
+        options: { data: { role, locale, display_name: displayName.trim() },
+          emailRedirectTo: window.location.origin + import.meta.env.BASE_URL },
+      });
       if (error) throw error;
       if (!data.session) {
         // The project's Auth settings require confirming the email before
@@ -105,15 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // either way.
         throw new NeedsEmailConfirmationError();
       }
-      const userId = data.session.user.id;
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        role,
-        locale,
-        display_name: displayName,
-      });
-      if (profileError) throw profileError;
-      const p = await fetchProfile(userId);
+      const p = await fetchProfile(data.session.user);
       setProfile(p);
       setActiveViewState(p?.role ?? role);
     },
@@ -121,12 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw error;
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }, []);
 
   const setActiveView = useCallback((role: Role) => {
@@ -138,7 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session, profile, loading, activeView, setActiveView, signUp, signIn, signOut],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{authError ? (
+    <div className="page stack"><p role="alert">Impossible de charger le profil : {authError}</p>
+      <button onClick={() => window.location.reload()}>Réessayer</button>
+      <button onClick={() => void signOut()}>Se déconnecter</button></div>
+  ) : children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

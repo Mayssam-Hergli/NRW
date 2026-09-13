@@ -91,7 +91,14 @@ export function QualityView({
     <div>
       <AppHeader connection={connection} locale={locale} />
       <div className="page wide stack">
-        <div style={{ fontWeight: 700 }}>{UI_TEXT.title[locale]}</div>
+        <div className="view-heading"><span className="eyebrow">VALLUM / QUALITY</span><h1>{UI_TEXT.title[locale]}</h1></div>
+        <div className="metrics-grid">
+          <div className="metric-card"><span>{UI_TEXT.title[locale]}</span><strong>{shipments.length}</strong></div>
+          <div className="metric-card"><span>{VERDICT_LABEL.compliant[locale]}</span><strong>{rows.filter(r => r.budget.verdict === "compliant").length}</strong></div>
+          <div className="metric-card"><span>{VERDICT_LABEL.excursion_review[locale]}</span><strong className="attention">{rows.filter(r => r.budget.verdict === "excursion_review").length}</strong></div>
+          <div className="metric-card"><span>{locale === "fr" ? "Données insuffisantes" : locale === "ar" ? "بيانات غير كافية" : "Insufficient data"}</span><strong>{shipments.length - rows.length}</strong></div>
+        </div>
+        <p className="insight-note">{locale === "fr" ? "Évaluation des mesures chargées uniquement. Vérifiez la couverture et la période avant de valider une expédition." : locale === "ar" ? "التقييم للقراءات المحملة فقط. تحقق من التغطية والفترة قبل اعتماد الشحنة." : "Assessment covers loaded readings only. Check coverage and time range before approving a shipment."}</p>
 
         {rows.length === 0 && <div className="panel muted">{UI_TEXT.noShipments[locale]}</div>}
 
