@@ -14,6 +14,12 @@ instead of running inside a test loop.
 Never threshold raw duty_pct: expected_duty_pct() already rises with
 ambient/speed for a healthy unit, so only the residual against that
 baseline is a fault signal.
+
+Severity is assigned by the fusion layer, not here. The same fault means
+different things depending on cargo temperature, remaining journey time
+and mission profile: a failed fan is a warning on a short run in mild
+weather and critical on a four-hour leg into Médenine heat with cargo
+already at 7.2 °C. This module reports electrical state only.
 """
 
 from __future__ import annotations
@@ -99,6 +105,8 @@ class ElectricalHealthMonitor:
         }
 
         if power.state == CompressorState.RUN and power.cond_fan.i_rms <= FAN_ZERO_EPSILON_A:
+            evidence["cond_fan_i"] = round(power.cond_fan.i_rms, 3)
+            evidence["evap_fan_i"] = round(power.evap_fan.i_rms, 3)
             return ElectricalHealthResult(FaultCause.fan_failure, evidence)
 
         if power.evap_fan.i_rms <= FAN_ZERO_EPSILON_A:
@@ -107,7 +115,20 @@ class ElectricalHealthMonitor:
             self._evap_zero_min = 0.0
         if self._evap_zero_min >= UNIT_OFF_SUSTAIN_MIN:
             evidence["mins"] = self._evap_zero_min
-            return ElectricalHealthResult(FaultCause.unit_off, evidence)
+            # Evap current alone at zero is ambiguous: it's consistent with
+            # either the whole unit losing power (compressor and condenser
+            # fan would also read zero) or the evaporator fan itself
+            # failing while the rest of the unit runs normally. Only the
+            # former is a genuine unit_off -- check the other two channels
+            # before concluding that, rather than assuming it.
+            if (
+                power.compressor.i_rms <= FAN_ZERO_EPSILON_A
+                and power.cond_fan.i_rms <= FAN_ZERO_EPSILON_A
+            ):
+                return ElectricalHealthResult(FaultCause.unit_off, evidence)
+            evidence["cond_fan_i"] = round(power.cond_fan.i_rms, 3)
+            evidence["evap_fan_i"] = round(power.evap_fan.i_rms, 3)
+            return ElectricalHealthResult(FaultCause.fan_failure, evidence)
 
         if (
             len(self._smoothed_v_bus) == self._smoothed_v_bus.maxlen
