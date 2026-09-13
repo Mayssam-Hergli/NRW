@@ -12,6 +12,7 @@ from shared.enums import ProbePosition
 from shared.profiles import get_profile
 from simulator.config import THERMAL_TAU_MIN
 from simulator.scenarios import (
+    CompressorFailureScenario,
     DeadZoneScenario,
     DoorOpenScenario,
     FreezeRiskScenario,
@@ -76,16 +77,13 @@ def test_mae_under_15_minutes_across_breaching_scenarios() -> None:
     own fast cycling briefly reading as "trending toward freeze" during a
     refrigerant_loss run that has nothing to do with freezing -- which is a
     real, separate false-positive-rate concern, not part of "how accurate is
-    the breach forecast"). compressor_failure is excluded: in this
-    simulator, ThermalSim's thermostat is entirely independent of
-    ElectricalSim's unit_powered flag, so a "unit off" fault never actually
-    stops cooling thermally and the scenario has no real breach to score
-    against, at any duration.
+    the breach forecast").
     """
     cases = [
         ("door_open", DoorOpenScenario(), None, False, "upper"),
         ("refrigerant_loss", RefrigerantLossScenario(), 6000.0, False, "upper"),
         ("freeze_risk", FreezeRiskScenario(), None, True, "lower"),
+        ("compressor_failure", CompressorFailureScenario(), 260.0, False, "upper"),
     ]
     errors = []
     for name, scenario, duration, use_bottom, direction in cases:

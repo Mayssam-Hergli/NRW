@@ -194,7 +194,9 @@ class Scenario:
                 door_events += 1
             prev_door_open = door_open
 
-            thermal_state = thermal.step(dt_s, eff, door_open=door_open)
+            thermal_state = thermal.step(
+                dt_s, eff, door_open=door_open, unit_powered=elec.unit_powered
+            )
             elec_state = elec.step(dt_s, eff, compressor_on=thermal_state.compressor_on)
             expected_duty = elec.expected_duty_pct(eff, point.speed_kmh)
 

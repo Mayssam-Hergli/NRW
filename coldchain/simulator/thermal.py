@@ -58,13 +58,30 @@ class ThermalSim:
             probe: self.setpoint_c + config.PROBE_OFFSET_C[probe] for probe in _PROBES
         }
 
-    def step(self, dt_s: float, effective_ambient_c: float, door_open: bool) -> ThermalState:
+    def step(
+        self,
+        dt_s: float,
+        effective_ambient_c: float,
+        door_open: bool,
+        unit_powered: bool = True,
+    ) -> ThermalState:
+        """`unit_powered` is a one-way read of the electrical side's own
+        state (ElectricalSim.unit_powered) -- ThermalSim never reaches back
+        into ElectricalSim itself; the orchestrating loop passes the flag
+        through. `compressor_on` below stays the thermostat's *demand*
+        (unaffected by unit_powered) so downstream FAULT detection -- which
+        compares thermostat demand against observed electrical current --
+        keeps working; only the cooling actually *delivered* is gated by
+        power being present.
+        """
         dt_min = dt_s / 60.0
 
         if self._t_ref > self.setpoint_c + config.THERMOSTAT_HYSTERESIS_C:
             self.compressor_on = True
         elif self._t_ref < self.setpoint_c - config.THERMOSTAT_HYSTERESIS_C:
             self.compressor_on = False
+
+        cooling_active = self.compressor_on and unit_powered
 
         if door_open:
             tau_ref = self.tau_min / config.DOOR_OPEN_TAU_SPEEDUP
@@ -73,7 +90,7 @@ class ThermalSim:
             tau_ref = self.tau_min
             cooling_ref = (
                 config.COOLING_POWER_C_PER_MIN * self.cooling_capacity_frac
-                if self.compressor_on
+                if cooling_active
                 else 0.0
             )
 
