@@ -28,6 +28,7 @@ from shared.schema import (
 )
 from simulator.electrical import ElectricalSim
 from simulator.scenarios import (
+    CompressorFailureScenario,
     DoorOpenScenario,
     FreezeRiskScenario,
     NominalScenario,
@@ -283,3 +284,77 @@ def test_freeze_risk_even_while_door_closed_and_current_normal() -> None:
     diag = fuse(p, m1, _electrical_result(), None, [])
     assert diag.cause == FaultCause.freeze_risk
     assert diag.severity == Severity.critical
+
+
+# --- the headline test: identical thermal slope, three different stories --
+
+
+def test_headline_door_open_vs_unit_off_on_comparable_thermal_slopes() -> None:
+    """Same thermal signature -- a real, non-trivial upper-bound countdown
+    -- resolved completely differently depending on what the other domains
+    say: a door left open too long is a warning to close it; verified zero
+    current on every channel is a critical restart. Cause, severity, and
+    prescribed action must all three differ.
+    """
+    m1 = _forecast_result(minutes_to_breach=20.0, breach_bound="upper")
+
+    door_packet = _packet(t_c=7.0, door_open=True, door_events=1, speed_kmh=0.0, light_lux=0.0)
+    # 15 minutes of prior history on the same door-open event -- past
+    # pharma_refrigerated's 10-minute dwell limit, and light_lux=0.0 means
+    # the light sensor never corroborated it either.
+    history = [
+        door_packet.model_copy(
+            update={"seq": i, "ts": door_packet.ts - timedelta(minutes=15 - i)}
+        )
+        for i in range(15)
+    ]
+    door_diag = fuse(door_packet, m1, _electrical_result(), None, history)
+
+    unit_off_packet = _packet(t_c=7.0, door_open=False)
+    unit_off_m2 = _electrical_result(cause=FaultCause.unit_off, evidence={"mins": 5.0})
+    unit_off_diag = fuse(unit_off_packet, m1, unit_off_m2, None, [])
+
+    assert door_diag.cause != unit_off_diag.cause
+    assert door_diag.severity != unit_off_diag.severity
+    assert door_diag.prescribed_action != unit_off_diag.prescribed_action
+    assert unit_off_diag.severity == Severity.critical
+    assert unit_off_diag.prescribed_action == PrescribedAction.restart_unit
+    assert door_diag.prescribed_action == PrescribedAction.close_door
+
+
+# --- compressor_failure: bearing warning first, then unit_off critical ----
+
+
+def test_compressor_failure_bearing_warning_then_unit_off_critical() -> None:
+    results = _run_fusion_over_scenario(CompressorFailureScenario(), duration_min=260.0)
+    bearing_events = [(p.seq, d) for p, d in results if d.cause == FaultCause.bearing_wear]
+    unit_off_events = [(p.seq, d) for p, d in results if d.cause == FaultCause.unit_off]
+
+    assert bearing_events, "expected an early bearing_wear warning"
+    assert unit_off_events, "expected unit_off once the unit actually stops"
+    assert bearing_events[-1][0] < unit_off_events[0][0]
+    assert all(d.severity == Severity.warning for _, d in bearing_events)
+    assert all(d.severity == Severity.critical for _, d in unit_off_events)
+
+
+# --- same fault, different severity depending on context ------------------
+
+
+def test_same_fault_different_severity_under_different_contexts() -> None:
+    # "A failed fan is warning on a short run in mild weather and critical
+    # on a four-hour leg into Medenine heat with cargo close to the edge"
+    # (PROJECT.md) -- same cause, context (how soon the thermal consequence
+    # actually lands) decides severity, not the electrical fault alone.
+    mild_m1 = _forecast_result(minutes_to_breach=35.0, breach_bound="upper")
+    mild_packet = _packet(t_c=5.0, ambient_c=22.0, door_open=False)
+    mild_diag = fuse(
+        mild_packet, mild_m1, _electrical_result(cause=FaultCause.fan_failure), None, []
+    )
+
+    hot_m1 = _forecast_result(minutes_to_breach=8.0, breach_bound="upper")
+    hot_packet = _packet(t_c=7.2, ambient_c=42.0, door_open=False)
+    hot_diag = fuse(hot_packet, hot_m1, _electrical_result(cause=FaultCause.fan_failure), None, [])
+
+    assert mild_diag.cause == FaultCause.fan_failure == hot_diag.cause
+    assert mild_diag.severity == Severity.warning
+    assert hot_diag.severity == Severity.critical

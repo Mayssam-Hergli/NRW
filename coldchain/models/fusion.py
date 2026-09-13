@@ -212,6 +212,25 @@ def fuse(
             confidence=0.8,
         )
 
+    # unit_off is a verified fault, not an inferred one -- compressor,
+    # condenser fan and evaporator fan all read zero simultaneously (M2's
+    # own disambiguation from a lone fan_failure). That's already
+    # unambiguous the instant it's true; it does not need to wait for
+    # "drifting" to also become true before treating it as critical, which
+    # is exactly the "nominal -> critical (hard fault)" transition the
+    # alert engine's state machine expects to see, not a few minutes of
+    # "warning" while the thermal side catches up.
+    if m2.cause == FaultCause.unit_off:
+        return Diagnosis(
+            cause=FaultCause.unit_off,
+            severity=Severity.critical,
+            evidence=evidence,
+            prescribed_action=PrescribedAction.restart_unit,
+            suppressed=False,
+            suppression_reason=None,
+            confidence=0.95,
+        )
+
     # Door open while moving: no grace period, no suppression -- this is
     # dangerous the instant it's true, independent of how long it's been
     # open or what the temperature is doing.
@@ -297,12 +316,10 @@ def fuse(
         )
 
     if current_abnormal and drifting:
+        # unit_off never reaches here -- it's a hard fault, handled above
+        # regardless of drift state.
         assert m2.cause is not None
         severity = _severity_from_signals(packet, m1, spec, m3)
-        if m2.cause == FaultCause.unit_off:
-            # Verified, not inferred: all three channels read zero. No
-            # ambiguity left to weigh.
-            severity = Severity.critical
         action = _ACTION_FOR_M2_CAUSE.get(m2.cause, PrescribedAction.check_electrical)
         return Diagnosis(
             cause=m2.cause,
