@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../lib/auth";
+import { Logo } from "../components/Logo";
+import { NeedsEmailConfirmationError, useAuth } from "../lib/auth";
 import type { Locale, Role } from "../lib/types";
 
 const ROLE_OPTIONS: Array<{ value: Role; label: Record<Locale, string> }> = [
@@ -31,11 +32,23 @@ const FORM_TEXT = {
   submitSignUp: { fr: "Créer le compte", en: "Create account", ar: "إنشاء الحساب" },
   switchToSignUp: { fr: "Pas de compte ? Créer un compte", en: "No account? Sign up", ar: "لا يوجد حساب؟ أنشئ واحدًا" },
   switchToSignIn: { fr: "Déjà un compte ? Se connecter", en: "Already have an account? Sign in", ar: "لديك حساب؟ سجل الدخول" },
+  back: { fr: "← Retour à l'accueil", en: "← Back to home", ar: "→ العودة إلى الرئيسية" },
+  needsConfirmation: {
+    fr: "Compte créé. Vérifiez votre e-mail pour confirmer, puis connectez-vous.",
+    en: "Account created. Check your email to confirm, then sign in.",
+    ar: "تم إنشاء الحساب. تحقق من بريدك الإلكتروني للتأكيد، ثم سجّل الدخول.",
+  },
 } satisfies Record<string, Record<Locale, string>>;
 
-export function AuthView() {
+export function AuthView({
+  initialMode = "signUp",
+  onBack,
+}: {
+  initialMode?: "signIn" | "signUp";
+  onBack?: () => void;
+}) {
   const { signUp, signIn } = useAuth();
-  const [mode, setMode] = useState<"signIn" | "signUp">("signUp");
+  const [mode, setMode] = useState<"signIn" | "signUp">(initialMode);
   const [formLocale, setFormLocale] = useState<Locale>("fr");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +56,7 @@ export function AuthView() {
   const [role, setRole] = useState<Role>("driver");
   const [accountLocale, setAccountLocale] = useState<Locale>("fr");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const t = FORM_TEXT;
@@ -50,6 +64,7 @@ export function AuthView() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setSubmitting(true);
     try {
       if (mode === "signUp") {
@@ -58,6 +73,12 @@ export function AuthView() {
         await signIn(email, password);
       }
     } catch (err) {
+      if (err instanceof NeedsEmailConfirmationError) {
+        setInfo(t.needsConfirmation[formLocale]);
+        setMode("signIn");
+        setSubmitting(false);
+        return;
+      }
       // Supabase's error objects (rate limits, validation errors, etc.)
       // don't always satisfy `instanceof Error` depending on how they
       // cross a module boundary -- checking for a `message` property
@@ -76,8 +97,8 @@ export function AuthView() {
 
   return (
     <div className="page">
-      <div className="row space-between" style={{ marginBlockEnd: "1rem" }}>
-        <h1 style={{ fontSize: "1.25rem" }}>{mode === "signUp" ? t.signUp[formLocale] : t.signIn[formLocale]}</h1>
+      <div className="row space-between" style={{ marginBlockEnd: "0.5rem" }}>
+        <Logo height={26} onClick={onBack} />
         <select value={formLocale} onChange={(e) => setFormLocale(e.target.value as Locale)} style={{ width: "auto" }}>
           {LOCALE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -86,6 +107,14 @@ export function AuthView() {
           ))}
         </select>
       </div>
+
+      {onBack && (
+        <button type="button" className="secondary" onClick={onBack} style={{ marginBlockEnd: "1rem", fontSize: "0.8rem" }}>
+          {t.back[formLocale]}
+        </button>
+      )}
+
+      <h1 style={{ fontSize: "1.25rem" }}>{mode === "signUp" ? t.signUp[formLocale] : t.signIn[formLocale]}</h1>
 
       <form onSubmit={handleSubmit} className="stack">
         <div className="field">
@@ -133,6 +162,11 @@ export function AuthView() {
         )}
 
         {error && <div className="error-text">{error}</div>}
+        {info && (
+          <div className="error-text" style={{ color: "var(--primary)" }}>
+            {info}
+          </div>
+        )}
 
         <button type="submit" disabled={submitting}>
           {mode === "signUp" ? t.submitSignUp[formLocale] : t.submitSignIn[formLocale]}
@@ -141,7 +175,11 @@ export function AuthView() {
         <button
           type="button"
           className="secondary"
-          onClick={() => setMode(mode === "signUp" ? "signIn" : "signUp")}
+          onClick={() => {
+            setError(null);
+            setInfo(null);
+            setMode(mode === "signUp" ? "signIn" : "signUp");
+          }}
         >
           {mode === "signUp" ? t.switchToSignIn[formLocale] : t.switchToSignUp[formLocale]}
         </button>

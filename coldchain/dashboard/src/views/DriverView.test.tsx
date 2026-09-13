@@ -100,12 +100,12 @@ vi.mock("../hooks/useAlerts", () => ({
 describe("DriverView speed gating", () => {
   it("renders the same alert differently at 0 km/h vs 80 km/h", () => {
     mockSpeed = 0;
-    const { container: stationary, unmount } = render(<DriverView />);
+    const { container: stationary, unmount } = render(<DriverView locale="fr" />);
     const stationaryHtml = stationary.innerHTML;
     unmount();
 
     mockSpeed = 80;
-    const { container: moving } = render(<DriverView />);
+    const { container: moving } = render(<DriverView locale="fr" />);
     const movingHtml = moving.innerHTML;
 
     expect(stationaryHtml).not.toEqual(movingHtml);
@@ -113,7 +113,7 @@ describe("DriverView speed gating", () => {
 
   it("stationary view shows full detail (band indicator, cause picker)", () => {
     mockSpeed = 0;
-    render(<DriverView />);
+    render(<DriverView locale="fr" />);
     // Stationary renders BandIndicator's band edges.
     expect(screen.getByText("2.0°C")).toBeInTheDocument();
     expect(screen.getByText("8.0°C")).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("DriverView speed gating", () => {
 
   it("moving + critical severity shows the fixed pull-over instruction, not the cause-specific message", () => {
     mockSpeed = 80;
-    render(<DriverView />);
+    render(<DriverView locale="fr" />);
     expect(screen.getByText("Arrêtez-vous en sécurité, puis vérifiez.")).toBeInTheDocument();
   });
 });

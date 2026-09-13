@@ -1,8 +1,6 @@
 import { useMemo } from "react";
-import { ConnectionBadge } from "../components/ConnectionBadge";
-import { RoleSwitcher } from "../components/RoleSwitcher";
+import { AppHeader } from "../components/AppHeader";
 import { useShipments } from "../hooks/useShipments";
-import { useAuth } from "../lib/auth";
 import {
   readingsFromPackets,
   stabilityBudgetConsumed,
@@ -66,10 +64,13 @@ function computeBudget(
   );
 }
 
-export function QualityView() {
-  const { profile: userProfile } = useAuth();
-  const locale: Locale = userProfile?.locale ?? "fr";
-
+export function QualityView({
+  locale,
+  onOpenCertificate,
+}: {
+  locale: Locale;
+  onOpenCertificate: (shipmentId: string) => void;
+}) {
   const { shipments, connection } = useShipments();
 
   const rows = useMemo(
@@ -87,50 +88,51 @@ export function QualityView() {
   );
 
   return (
-    <div className="page wide stack">
-      <div className="row space-between">
-        <ConnectionBadge state={connection} locale={locale} />
-        <RoleSwitcher locale={locale} />
-      </div>
+    <div>
+      <AppHeader connection={connection} locale={locale} />
+      <div className="page wide stack">
+        <div style={{ fontWeight: 700 }}>{UI_TEXT.title[locale]}</div>
 
-      <div style={{ fontWeight: 700 }}>{UI_TEXT.title[locale]}</div>
+        {rows.length === 0 && <div className="panel muted">{UI_TEXT.noShipments[locale]}</div>}
 
-      {rows.length === 0 && <div className="panel muted">{UI_TEXT.noShipments[locale]}</div>}
-
-      {rows.map(({ shipment, budget }) => (
-        <div key={shipment.shipmentId} className="panel stack">
-          <div className="row space-between">
-            <div>
-              <div style={{ fontWeight: 700 }}>{shipment.shipmentId}</div>
-              <div className="muted" style={{ fontSize: "0.85rem" }}>
-                {shipment.deviceId}
+        {rows.map(({ shipment, budget }) => (
+          <div key={shipment.shipmentId} className="panel stack">
+            <div className="row space-between">
+              <div>
+                <div style={{ fontWeight: 700 }}>{shipment.shipmentId}</div>
+                <div className="muted" style={{ fontSize: "0.85rem" }}>
+                  {shipment.deviceId}
+                </div>
               </div>
+              <span style={{ color: VERDICT_COLOR[budget.verdict], fontWeight: 700 }}>
+                ● {VERDICT_LABEL[budget.verdict][locale]}
+              </span>
             </div>
-            <span style={{ color: VERDICT_COLOR[budget.verdict], fontWeight: 700 }}>
-              ● {VERDICT_LABEL[budget.verdict][locale]}
-            </span>
-          </div>
 
-          <div className="row space-between numeric" style={{ fontSize: "0.9rem" }}>
-            <span>
-              {UI_TEXT.mkt[locale]}: {budget.mktC.toFixed(1)}°C
-            </span>
-            <span>
-              {(budget.minutesOutOfBandAbove + budget.minutesOutOfBandBelow).toFixed(0)}{" "}
-              {UI_TEXT.minutesOut[locale]}
-            </span>
-            <span>
-              {budget.coveragePct.toFixed(1)}% {UI_TEXT.coverage[locale]}
-            </span>
-          </div>
+            <div className="row space-between numeric" style={{ fontSize: "0.9rem" }}>
+              <span>
+                {UI_TEXT.mkt[locale]}: {budget.mktC.toFixed(1)}°C
+              </span>
+              <span>
+                {(budget.minutesOutOfBandAbove + budget.minutesOutOfBandBelow).toFixed(0)}{" "}
+                {UI_TEXT.minutesOut[locale]}
+              </span>
+              <span>
+                {budget.coveragePct.toFixed(1)}% {UI_TEXT.coverage[locale]}
+              </span>
+            </div>
 
-          {/* Certificate rendering is a later step -- link to it, don't
-              build it here. */}
-          <a href={`#certificate/${shipment.shipmentId}`} className="muted">
-            {UI_TEXT.certificate[locale]} →
-          </a>
-        </div>
-      ))}
+            <button
+              type="button"
+              className="secondary"
+              style={{ alignSelf: "flex-start", fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}
+              onClick={() => onOpenCertificate(shipment.shipmentId)}
+            >
+              {UI_TEXT.certificate[locale]} →
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

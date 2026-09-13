@@ -24,6 +24,16 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
 }
 
+/** Thrown by signUp() when the project requires email confirmation before
+ * a session exists. AuthView catches this specifically to show a "check
+ * your email" message instead of a generic error. */
+export class NeedsEmailConfirmationError extends Error {
+  constructor() {
+    super("check your email to confirm your account, then sign in");
+    this.name = "NeedsEmailConfirmationError";
+  }
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
@@ -83,17 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async ({ email, password, role, locale, displayName }) => {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      const userId = data.user?.id;
-      if (!userId) {
-        // Email confirmation is required by the project's auth settings --
-        // there's no session yet, so the profile row can't be written
-        // under RLS (profiles_insert_own needs auth.uid()). Confirming and
-        // signing in is the only path forward.
-        throw new Error(
-          "Sign-up succeeded but no session was returned -- check the project's email " +
-            "confirmation setting if this is unexpected for a live demo.",
-        );
+      if (!data.session) {
+        // The project's Auth settings require confirming the email before
+        // a session exists (Authentication -> Sign In / Providers -> Email
+        // -> "Confirm email"). data.user can be truthy here even though
+        // there's no session yet -- session, not user, is what RLS's
+        // auth.uid() depends on, so the profile insert below would be
+        // silently rejected without this check. For a walk-up demo where
+        // people scan a QR and expect to be in immediately, turning that
+        // setting off is the fix; this throw is the graceful fallback
+        // either way.
+        throw new NeedsEmailConfirmationError();
       }
+      const userId = data.session.user.id;
       const { error: profileError } = await supabase.from("profiles").insert({
         id: userId,
         role,
